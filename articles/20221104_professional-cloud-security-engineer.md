@@ -6,21 +6,6 @@ topics: ["GCP", "certificate", ]
 published: false
 ---
 
-# Google Cloud Platform Certified Professional Cloud Security Engineer Exam
-
-## 感想
-
-- ネットワークの勉強にもなって良かった。
-- 業務にも役立ちそう。
-
-## 受験について
-
-- 高田馬場テストセンターで受験
-- 英語で受けたが、制限時間 2h なので余裕をもって見直せる
-- 試験会場で解答を提出ボタンを押すとその場で合否が分かる(後日正式な結果が届く)
-
----
-
 # 勉強内容QA(※自分用メモ)
 
 - # GCPのプロジェクトの定義を簡潔にいえ

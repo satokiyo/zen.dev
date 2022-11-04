@@ -6,8 +6,6 @@ topics: ["GCP", "certificate", "DataEngineer"]
 published: true
 ---
 
-# Google Cloud Platform Certified Professional Data Engineer Exam
-
 ## 感想
 
 - 公式の模擬試験の内容とほぼ同じ問題が混ざっていたので、事前に解いておくとよい。
@@ -22,8 +20,7 @@ published: true
 
 ---
 
-# 勉強内容メモ
-
+# 勉強内容メモ(※自分用)
 ## BigQuery
 
 - 準リアルタイムである程度複雑な SQL クエリが可能
