@@ -1,6 +1,6 @@
 ---
 title: "GCP Professional Data Engineer試験メモ"
-emoji: "🐙"
+emoji:  "📕"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["GCP", "certificate", "DataEngineer"]
 published: true
@@ -148,8 +148,7 @@ published: true
   > 一方で、同期レプリケーションでは、スレーブにデータ更新が反映されるのをマスタが待つので、更新性能がややダウンすることになりますが、マスタとスレーブのデータの内容は常に同じになりますし、マスタがダウンしてもデータ更新が失われることはありません。
 - インスタンスまたはゾーンで障害が発生した場合、永続ディスクはスタンバイ インスタンスにアタッチされ、新しいプライマリ インスタンスになります。ユーザーは新しいプライマリに再転送されます。このプロセスは、フェイルオーバーと呼ばれます。
 
-[About high availability | Cloud SQL for MySQL | Google Cloud](https://cloud.google.com/sql/docs/mysql/high-availability)
-
+https://cloud.google.com/sql/docs/mysql/high-availability
 ## Cloud SQL Auth Proxy
 
 - Cloud SQL Auth Proxy では、Identity and Access Management（IAM）権限を使用して接続を承認し、保護できます。Cloud SQL Auth Proxy は、ユーザーまたはサービス アカウントの認証情報を使用して接続を検証し、Cloud SQL インスタンスに対して承認された SSL / TLS レイヤに接続をラップします。(Google 推奨)
@@ -191,7 +190,9 @@ published: true
 
 - GCS のストレージクラスのオプションと、最小保存期間を挙げよ。
   ![Untitled](/images/20221015_professional-data-engineer/Untitled1.png)
-  [Storage classes | Google Cloud](https://cloud.google.com/storage/docs/storage-classes)
+
+https://cloud.google.com/storage/docs/storage-classes
+
   > Summary:
   > Cloud Storage lets you use storage classes that are less expensive than standard storage. These storage classes use low-performance HDDs compared to standard SDDs. The cost-performance trade-off lets you build low-cost, resilient applications that still have the fastest read access and lowest latency in the cloud space. Cloud Storage object lifecycle rules let you change storage classes or set expiration rules to further reduce storage costs.
 
@@ -325,11 +326,12 @@ published: true
 
   - Cloud Logging の出し方
     アプリから API を叩いてログに入れる。\_Default バケットにルーティングされるようなシンクになっていて、30 日間保存される。pubsub や BigQuery、GCS へのカスタムシンクを作れば制限はなくなる。
-    [https://qiita.com/HishiM/items/63b93742c098e1591f77](https://qiita.com/HishiM/items/63b93742c098e1591f77)
+
+https://qiita.com/HishiM/items/63b93742c098e1591f77
 
   > Cloud Logging の \_Required バケットは、管理アクティビティ監査ログとシステム イベント監査ログを取り込んで保存します。\_Required バケットやバケット内のログデータは構成できません。 \_Default バケットは、デフォルトで有効なデータアクセス監査ログとポリシー拒否監査ログを取り込んで保存します。データアクセス監査ログが \_Default バケットに保存されないようにするには、ログを無効にします。ポリシー拒否監査ログが \_Default バケットに保存されないようにするには、シンクのフィルタを変更してポリシー拒否監査ログを除外します。
 
-  [Cloud Audit Logs の概要 | Cloud Logging | Google Cloud](https://cloud.google.com/logging/docs/audit?hl=ja)
+https://cloud.google.com/logging/docs/audit?hl=ja
 
 - 集約されたシンクを使用する方法は？
   > 集約されたシンクを使用するには、Google Cloud の組織またはフォルダーにシンクを作成し、シンクの**includeChildren パラメータ**を True に設定します。そのシンクは、組織またはフォルダーからのログエントリに加えて、含まれているフォルダー、請求先アカウント、またはクラウドプロジェクトからのログエントリを（再帰的に）ルーティングできます。
