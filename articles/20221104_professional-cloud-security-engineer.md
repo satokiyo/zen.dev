@@ -3,7 +3,7 @@ title: "Google Cloud Professional Cloud Security Engineer試験受験メモ"
 emoji: "📖"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["GCP", "certificate", ]
-published: false
+published: true
 ---
 
 # 勉強内容QA(※自分用メモ)
