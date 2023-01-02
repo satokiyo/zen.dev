@@ -1,5 +1,6 @@
-npx zenn new:article \
---slug "20221219_professional-cloud-network-engineer" \
---title "Professional Cloud Network Engineer 試験受験メモ" \
---type tech # tech or idea
-# --emoji ✨
+npxzennnew:article\
+--slug"20230102-book-jisou-programmer"\
+--title"[読書]自走プログラマー　～Pythonの先輩が教えるプロジェクト開発のベストプラクティス120"\
+--typeidea\#techoridea
+--emoji📖
+#--emoji✨

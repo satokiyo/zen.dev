@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo\"Error:notestspecified\"&&exit1"
   },
   "repository": {
     "type": "git",
@@ -18,6 +18,6 @@
   },
   "homepage": "https://github.com/satokiyo/zen.dev#readme",
   "dependencies": {
-    "zenn-cli": "^0.1.131"
+    "zenn-cli": "^0.1.134"
   }
 }
