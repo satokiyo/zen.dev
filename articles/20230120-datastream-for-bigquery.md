@@ -1,160 +1,66 @@
 ---
-title: "Datastream for BigQueryでパーティション分割テーブルにストリーミングする方法メモ"
+title: "Datastream for BigQueryでパーティション分割テーブルにストリーミングしても、プルーニングが効かない問題"
 emoji: "👀"
-type: "tech" # tech: 技術記事 / idea: アイデア
-topics: ["Datastream", "BigQuery"]
+type: "tech"
+topics:
+  - "bigquery"
+  - "datastream"
+  - "dataflow"
+  - "streaming"
 published: true
 ---
 
-# Datastream for BigQuery でストリーミング連携する際、パーティション分割テーブルを指定できない。
+:::message
+2023.1 時点での検証内容です
+:::
 
-Datastream のコンソール画面からパーティションの設定は出来ませんでした。
+# Datastream for BigQuery
 
-## 試した方法
+GCP Datastream の CDC データを、直接 BigQuery にレプリケートしてくれるサービス(2023/1 時点でプレビュー版)
 
-### 1. 最初にパーティション分割テーブルを作成しておいて、そこにストリーミングする
+https://cloud.google.com/datastream-for-bigquery
 
-最初にパーティション分割テーブルを同じ名前で用意しておいて
+# やりたいこと
 
-```bash
-bq mk --table \
---schema ./schema.json \
---time_partitioning_field <field name> \
---require_partition_filter \
-<project_id:dataset.table>
-```
+Datastream for BigQuery でソース RDB テーブルからターゲット BigQuery テーブルへストリーミングする際、ターゲットのレプリカテーブルをパーティション分割して、クエリでパーティションプルーニングを効かせたい。
+⇒ Datastream の設定画面からパーティション分割を指定することは出来なかった。
 
-上のコマンドでパーティション分割テーブルを作成後、ストリームを開始してみるが、以下のエラーが出る。
+# Datastream for BigQuery でターゲットのテーブルをパーティション分割テーブルにする方法
 
-```text
-Discarded 1265 unsupported events for BigQuery destination: <table>, with reason code: BIGQUERY_UNSUPPORTED_PRIMARY_KEY_CHANGE, details: Failed to write to BigQuery due to an unsupported primary key change: adding primary keys to existing tables is not supported..
-```
+#### 以下のような方法を試したが上手くいかず。
 
-以下の記事を参考に、
-https://medium.com/google-cloud/configure-streams-in-datastream-with-predefined-tables-in-bigquery-for-postgresql-as-source-528340f7989b
+1. 最初にパーティション分割テーブルを作成しておいて、そこにストリーミングする
+2. ストリーム作成後に、既存のテーブルへのクエリからパーティション分割テーブルを作成する
+   ⇒ 1 と 2 の方法では以下のようなエラーが出る
 
-この SQL を実行してみたがエラー、、
+   ```text
+   BIGQUERY_UNSUPPORTED_PRIMARY_KEY_CHANGE, details: Failed to write to BigQuery due to an unsupported primary key change: adding primary keys to existing tables is not supported..
+   ```
 
-```bash
-bq query --use_legacy_sql=false '
-CREATE OR REPLACE TABLE  `project_id.dataset.table`
-  (
-  id INTEGER,
-  ...
-  datastream_metadata STRUCT<uuid STRING, source_timestamp INT64>,
-    PRIMARY KEY (id) NOT ENFORCED)
-PARTITION BY <partitioning field name>
-CLUSTER BY <clustering field name>
-OPTIONS(max_staleness = INTERVAL 15 MINUTE);
-'
-#  BigQuery error in query operation: Error processing job '': Incompatible table partitioning specification. Expected partitioning specification  clustering(id), but input partitioning specification is interval(type:day,field:<partitioning field name>) clustering(<clustering field name>)
-```
+   :::message
+   クエリ結果からテーブルを作成すると、フルスキャンが発生してコストがかかる。そこで GCS を経由することでフルスキャンを避けてノーコストでいける。この記事が参考になる
+   https://medium.com/google-cloud/how-to-modify-bigquery-table-definition-at-no-costs-2c59a1073cbb
+   :::
 
-⇒ id 列とパーティション列とクラスタリング列の指定が間違っているぽいが、よく分からない。。
+3. ストリーム作成後に 既存テーブルを update してパーティション化する
+   ⇒ 3 の方法では以下のようなエラーが出る。既存テーブルをパーティション分割テーブルにすることは出来ない。
 
-### 2. ストリーム作成後に update してパーティション化を試みる
+   ```text
+   BigQuery error in update operation: Cannot convert non partitioned table to partitioned table.
+   ```
 
-既存のテーブルのスキーマを取得
+#### 下記の イシュートラッカー を見ると、上記の方法は、「Datastream の CDC では」対応できないらしい。
 
-```bash
-bq show \
---schema \
---format=prettyjson \
-project_id:dataset.table > schema.json
-```
-
-既存テーブルのスキーマを指定して update してみる
-
-```bash
-bq update --table --schema ./schema.json --time_partitioning_field <field name> --require_partition_filter <project_id:dataset.table>
-#  BigQuery error in update operation: Cannot convert non partitioned table to partitioned table.
-```
-
-⇒ 上のようなエラーが発生。後からパーティション分割テーブルに変更することはできない!
-
-### 3. ストリーム作成後に、既存のテーブルを一旦 GCS にコピーして、別名でパーティション分割テーブルを作成、その後データを戻してからリネームする
-
-この記事を参考にすると、
-https://medium.com/google-cloud/how-to-modify-bigquery-table-definition-at-no-costs-2c59a1073cbb
-
-BigQuery 内での SQL だけでも出来るが、フルスキャンが発生してコストがかかる。そこで GCS を経由することでフルスキャンを避けてノーコストでいける！
-
-試してみる。
-
-```bash
-export MY_BUCKET=<bucket name>
-export PROJECT_NAME=<project name>
-export DATASET=<dataset name>
-export TABLE=<table name>
-
----
-# Create a new Google Cloud Storage (GCS) bucket
-gsutil mb -l asia-northeast1 -p ${PROJECT_NAME}  gs://${MY_BUCKET}
-
----
-# Dump the content of the table to the bucket
-bq extract \
---destination_format NEWLINE_DELIMITED_JSON \
---print_header=true \
-${PROJECT_NAME}:${DATASET}.${TABLE}  gs://${MY_BUCKET}/${TABLE}*
-# It is important to provide wildcard * at the end of the filename, because it is not possible to extract from BQ to GCS table of size bigger than 1GB. If we specify *, bq extract will split the exported data to multiple files.
-
----
-# Export the schema of the original table. It will be used in the next step.
-bq show \
---format=prettyjson \
-${PROJECT_NAME}:${DATASET}.${TABLE} \
-| jq '.schema.fields' > schema_${TABLE}.json
-
----
-# Load the data to the new BQ table which is partitioned hourly and it's schema matches the original table.
-bq load \
---source_format=NEWLINE_DELIMITED_JSON \
---time_partitioning_type=DAY \
---time_partitioning_field=<partitioning field name> \
---clustering_fields <clustering field name> \
-${PROJECT_NAME}:${DATASET}.${TABLE}_partitioned \
-gs://${MY_BUCKET}/${TABLE}* ./schema_${TABLE}.json
-# Note, there is a limitation to the bq load, that a single job can load at most 15 TB. If our data is bigger, we need to split the payload to multiple load jobs.
-
----
-# Switch tables. Remove the original one
-bq rm ${PROJECT_NAME}:${DATASET}.${TABLE} && \
-bq query --use_legacy_sql=false "ALTER TABLE ${DATASET}.${TABLE}_partitioned RENAME TO ${TABLE};"
-
-# Clean up. Delete the bucket to ensure that you do not pay for storage costs
-gsutil -m rm gs://${MY_BUCKET}
-```
-
-⇒ 上記実行後、ロギングを確認すると、次のような Warning が出て上手くいっていない。。
-
-```text
-BIGQUERY_UNSUPPORTED_PRIMARY_KEY_CHANGE, details: Failed to write to BigQuery due to an unsupported primary key change: adding primary keys to existing tables is not supported
-```
-
-やはり後からパーティション分割テーブルにしても、上手くストリーミングできないようだ。。
-
-(追記)
-この公式ページにも一旦ストリームを停止してからテーブルを作成して、データをロードするという、上で試した方法が書いてあるが、
-https://cloud.google.com/datastream/docs/best-practices-stream-data#partition-replica-datasets
-Datastream for BigQuery(preview)だと、上手くいかなかった。。
-少なくとも現状は、Datastream -> GCS -> pubsub -> Dataflow -> BigQuery の Google 提供テンプレートを使う場合に限られるみたい？
-
-## 解決した方法
-
-下記の イシュートラッカー を見ると、上記 3.の方法は、「Datastream の CDC では」対応できないらしい。
+https://issuetracker.google.com/issues/250938168
 
 > however this approach won't work for existing Datastream sourced tables **since there wouldn't be a \_CHANGE_SEQUENCE_NUMBER field which is required to correctly apply UPSERT operations in the correct order**. So the only option would be to pre-create the table with partitioning/clustering/primary keys before starting the Datastream stream like the below DDL SQL sample query.、
 
-イシュートラッカー
-https://issuetracker.google.com/issues/250938168
-
-上記イシュートラッカーを見ると、以下の DDL をしてからストリームすればいいと書いてある。よく見ると、**Primarykey と、Clustering に同じカラムを指定することがマスト**のようだ。
+よく見ると、以下の DDL をしてからストリームすればいいと書いてある。**Primarykey と、Clustering に同じカラムを指定することがマスト**のようだ。
 
 > CLUSTER BY
 > Primary_key_field #This must be an exact match of the specified primary key fields
 
-これを試してみる
+#### これを試してみる
 
 ```bash
 bq query --use_legacy_sql=false "CREATE OR REPLACE TABLE ${DATASET}.${TABLE} (
@@ -169,4 +75,154 @@ OPTIONS(max_staleness = INTERVAL 15 MINUTE);
 "
 ```
 
-⇒ これで上手くいった!
+⇒ 作成したパーティション分割テーブルに対してストリーミングを作成。これでパーティション分割されたターゲットのレプリカテーブルに対してデータがインサートされた。
+
+# クエリのパーティションプルーニングが効かない！
+
+パーティション分割テーブルにレプリケートされたので一件落着と思っていたところ、問題が発覚。パーティションに対するフィルタを指定してクエリしてもスキャン量が減らない。。**プルーニングが効いていない**。
+
+クエリの実行詳細を見ると、**DELTA_CDC_TABLE_xxx**とかいうテーブルから読み込んでいる。
+
+Datastream for BigQuery では、パーティション分割テーブルにしてもそのテーブルから直接スキャンしない仕様になっているようだ。(中間テーブルに対する view のようなもの？)
+
+試しにクエリ結果から新しくパーティション分割テーブルを作成してみる。
+
+```
+bq query \
+    --use_legacy_sql=false \
+    --destination_table <dataset>.<table> \
+    --time_partitioning_field <field_name> \
+    --time_partitioning_type DAY \
+    'select field_name from <dataset>.<table>'
+```
+
+⇒ 出力されたテーブルへのクエリでもパーティションのプルーニングが効かない。。
+
+# Google 提供の Dataflow テンプレートでストリーミングしたら、パーティション分割テーブルのプルーニングが効くのか検証
+
+Dataflow には Google 提供のテンプレートで Datastream to BigQuery (Stream)がある。
+
+https://cloud.google.com/dataflow/docs/guides/templates/provided-streaming#datastream-to-bigquery
+
+公式ドキュメントにパーティション分割の方法が書いてあるので、この通りに試す ↓
+
+https://cloud.google.com/datastream/docs/best-practices-stream-data#partition-replica-datasets
+
+:::message
+この方法は、一旦ストリームを停止してからテーブルを作成してデータをロードするという方法で、上で試した方法と同じ。以下の手順で試したところ、確かにうまく行く。しかし、Datastream for BigQuery だと、上手くいかなかった(上述)ので、Datastream for BigQuery は裏でテンプレートと同じ実装を使っている訳ではないらしい。
+:::
+
+#### 変数準備
+
+```bash
+export GCS_FILE_PATH=xxx
+export TOPIC_NAME=xxx
+export SUBSCRIPTION_NAME=xxx
+export JOB_NAME=xxx
+export PROJECT_ID=xxx
+export REGION_NAME=xxx
+export GCS_SUBSCRIPTION_NAME=projects/${PROJECT_ID}/subscriptions/${SUBSCRIPTION_NAME}
+export BIGQUERY_DATASET_STG=xxx
+export BIGQUERY_DATASET=xxx
+export BIGQUERY_TABLE=xxx
+export BIGQUERY_TABLE_STG=xxx
+export VERSION=latest
+export INPUT_FILE_FORMAT=avro
+export DEADLETTER_QUEUE_DIRECTORY=${GCS_FILE_PATH}-deadletter-queue
+```
+
+#### Datastream の CDC を GCS に作成
+
+1. バケットの作成
+
+```
+gsutil mb -l asia-northeast1 ${GCS_FILE_PATH}
+gsutil mb -l asia-northeast1 ${DEADLETTER_QUEUE_DIRECTORY}
+```
+
+以下、GCP コンソールで作成
+
+2. バケットを指定した Connection Profile の作成
+
+3. ストリームの作成
+
+#### Dataflow job の作成
+
+```bash
+# GCSのPubSub通知のためのPubSub Topicを作成
+gsutil notification create -t ${TOPIC_NAME} -f json ${GCS_FILE_PATH}
+
+# 上で作成したTopicからDataflowが読み出しを行うためのSubscriptionを作成
+gcloud pubsub subscriptions create ${SUBSCRIPTION_NAME} --topic=${TOPIC_NAME}
+
+# jobの作成
+gcloud beta dataflow flex-template run ${JOB_NAME} \
+    --project=${PROJECT_ID} \
+    --region=${REGION_NAME} \
+    --enable-streaming-engine \
+    --template-file-gcs-location=gs://dataflow-templates/${VERSION}/flex/Cloud_Datastream_to_BigQuery \
+    --parameters \
+inputFilePattern=${GCS_FILE_PATH}/,\
+gcsPubSubSubscription=${GCS_SUBSCRIPTION_NAME},\
+outputStagingDatasetTemplate=${BIGQUERY_DATASET_STG},\
+outputDatasetTemplate=${BIGQUERY_DATASET},\
+outputStagingTableNameTemplate=${BIGQUERY_TABLE_STG},\
+outputTableNameTemplate=${BIGQUERY_TABLE},\
+inputFileFormat=${INPUT_FILE_FORMAT},\
+deadLetterQueueDirectory=${DEADLETTER_QUEUE_DIRECTORY}
+```
+
+#### CDC データが BigQuery にインサートされたのを確認後、Dataflow ジョブを停止/ドレインし、パーティション分割テーブルに変更する
+
+以下のクエリを実行
+
+```bash
+bq query --use_legacy_sql=false "
+create table ${PROJECT_ID}.${BIGQUERY_DATASET}.${BIGQUERY_TABLE}_partition_by_key partition by date(field_name)
+as SELECT * FROM ${PROJECT_ID}.${BIGQUERY_DATASET}.${BIGQUERY_TABLE}
+"
+
+bq query --use_legacy_sql=false "
+drop table ${PROJECT_ID}.${BIGQUERY_DATASET}.${BIGQUERY_TABLE};
+alter table ${PROJECT_ID}.${BIGQUERY_DATASET}.${BIGQUERY_TABLE}_partition_by_key rename to ${BIGQUERY_TABLE};
+"
+```
+
+## 検証結果
+
+もう一度 Dataflow ジョブを作成し、プルーニングが効くか確認
+⇒ ちゃんとプルーニングが効いていることが確認できた。
+
+# まとめ
+
+- Datastream for BigQuery では、パーティション分割テーブルにストリーミングしてもプルーニングが効かない。
+- Dataflow で同等の機能を使える Google 提供のテンプレートでは、パーティション分割テーブルにストリーミングすると、ちゃんとプルーニングが効く。
+
+# その他 Tips
+
+#### Google 提供の Dataflow テンプレートでのストリーミングでスキャン量の激増に注意
+
+デフォルトで 10min 間隔で CDC ステージングテーブルとターゲットレプリカテーブルの MERGE が発生する。バックフィルでの Initial Load で大量のデータがステージングテーブルに保持される場合、二つのテーブルのフルスキャンが 10min おきに発生することになるので注意。
+⇒ バックフィル中は MERGE 間隔を長くとり、後でパイプラインを作り直すのがよい。
+
+#### クエリのスキャン量確認クエリ
+
+以下のクエリで特定のテーブルやクエリを指定して確認
+
+```bash
+bq query --use_legacy_sql=false "
+SELECT
+  user_email,
+  creation_time,
+  query,
+  total_bytes_processed AS total_bytes_processed,
+  total_bytes_processed / 1024 / 1024 / 1024 /1024 AS total_TB_processed,
+  total_bytes_processed / 1024 / 1024 / 1024 /1024 * 6.0 AS Charges_Dollar,
+FROM
+  region-asia-northeast1.INFORMATION_SCHEMA.JOBS_BY_PROJECT
+WHERE
+  DATE(creation_time) BETWEEN DATE_ADD(CURRENT_DATE('Asia/Tokyo'), INTERVAL -1 DAY ) AND CURRENT_DATE('Asia/Tokyo')
+  AND REGEXP_CONTAINS(query, r'<project_id>.<dataset>.<table>')
+  ORDER BY 2 desc
+"
+```
