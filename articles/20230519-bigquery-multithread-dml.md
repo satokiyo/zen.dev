@@ -89,7 +89,8 @@ https://cloud.google.com/bigquery/docs/reference/standard-sql/data-manipulation-
   Error: 400 Resources exceeded during query execution: Another job dtechlab-int:asia-northeast1.b2400ebd-84ae-4bcb-9799-49f52d433241 is currently running in the session Cg4KDGR0ZWNobGFiLWludBDJARokOWU4MGNjMzktY2YyMC00YjcyLWEzN2YtMjc5MzU5NDk0ODRh. Concurrent jobs in the same session are not allowed.
   ```
   ⇒ セッション内でのトランザクション処理では並列処理はできないらしい。
-  https://cloud.google.com/bigquery/docs/troubleshoot-queries?hl=ja#concurrent_jobs_in_the_same_session_are_not_allowed
+
+https://cloud.google.com/bigquery/docs/troubleshoot-queries?hl=ja#concurrent_jobs_in_the_same_session_are_not_allowed
 
 ### 結論として、
 
