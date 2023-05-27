@@ -34,16 +34,14 @@ https://cloud.google.com/bigquery/docs/troubleshoot-queries?hl=ja#could_not_seri
 
 https://cloud.google.com/bigquery/docs/reference/standard-sql/data-manipulation-language#dml_statement_conflicts
 
-（以下、推測）
-
 そもそも、エラーが発生していたテーブルは、パーティション分割テーブルではないが、その場合、テーブル全体が 1 つの大きなパーティションとして扱われるため、パーティション分割ではないテーブルでも同時更新が競合する可能性がある。
 
 言い換えれば、DML 文のマルチスレッド実行は保証されていないことになるのでは？
 
-Google Cloud ブログによると、BigQuery は DML ステートメントの実行に際して、テーブルロックではなく、**楽観的並行性制御（optimistic concurrency control）**という方法を使用している。クエリジョブ開始時のテーブルスナップショットを基準に、DML の処理結果コミット時の変更差分を算出して、他のジョブによる変更内容と競合しないかをチェックする。以前は競合が発生した場合、エラーとなり、アプリケーション側で対処する必要があったらしいが、現在は基準となるスナップショットを更新した上で、3 回までリトライするので、エラー数は大幅に少なくなったらしい。
+Google Cloud ブログによると、BigQuery は DML ステートメントの実行に際して、テーブルロックではなく、**楽観的並行性制御 optimistic concurrency control**という方法を使用している。クエリジョブ開始時のテーブルスナップショットを基準に、DML の処理結果コミット時の変更差分を算出して、他のジョブによる変更内容と競合しないかをチェックする。以前は競合が発生した場合、エラーとなり、アプリケーション側で対処する必要があったらしいが、現在は基準となるスナップショットを更新した上で、3 回までリトライするので、エラー数は大幅に少なくなったらしい。
 https://cloud.google.com/blog/ja/products/data-analytics/dml-without-limits-now-in-bigquery
 
-上記を踏まえると、BigQuery の楽観的並行性制御という仕組み上、多くの DML を並列で実行する程、高い確率で DML の競合エラーが発生することになる。**DML 文は本質的にマルチスレッド実行を保証できない。**
+上記を踏まえると、BigQuery の楽観的並行性制御という仕組み上、多くの DML を並列で実行する程、高い確率で DML の競合エラーが発生することになる。**DML 文は本質的にマルチスレッド実行を保証できない、と言えそう。**
 
 ## 実際に検証
 
