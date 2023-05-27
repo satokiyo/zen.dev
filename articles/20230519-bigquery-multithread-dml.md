@@ -40,11 +40,10 @@ https://cloud.google.com/bigquery/docs/reference/standard-sql/data-manipulation-
 
 言い換えれば、DML 文のマルチスレッド実行は保証されていないことになるのでは？
 
-前述のトラブルシューティングの最後には、以下のような記述がある。
+Google Cloud ブログによると、BigQuery は DML ステートメントの実行に際して、テーブルロックではなく、**楽観的並行性制御（optimistic concurrency control）**という方法を使用している。クエリジョブ開始時のテーブルスナップショットを基準に、DML の処理結果コミット時の変更差分を算出して、他のジョブによる変更内容と競合しないかをチェックする。以前は競合が発生した場合、エラーとなり、アプリケーション側で対処する必要があったらしいが、現在は基準となるスナップショットを更新した上で、3 回までリトライするので、エラー数は大幅に少なくなったらしい。
+https://cloud.google.com/blog/ja/products/data-analytics/dml-without-limits-now-in-bigquery
 
-> or when the table is truncated during a mutating DML statement.
-
-⇒ DML 文の実行中にテーブルが truncate（全レコード削除）されると、上記のエラーが発生する可能性があるらしい。したがって、特定のレコードに対する DELETE 文であっても、BigQuery の内部処理では（パーティションごとに）truncate が実行されると仮定すると、**DML 文は本質的にマルチスレッド実行を保証できない可能性がある。**
+上記を踏まえると、BigQuery の楽観的並行性制御という仕組み上、多くの DML を並列で実行する程、高い確率で DML の競合エラーが発生することになる。**DML 文は本質的にマルチスレッド実行を保証できない。**
 
 ## 実際に検証
 
@@ -69,19 +68,11 @@ https://cloud.google.com/bigquery/docs/reference/standard-sql/data-manipulation-
 - 存在しないレコードに対する DELETE 文をマルチスレッドで実行するとエラーになるか？
 
   - エラーにならない。
-    ⇒ クエリジョブを API でリクエスト、キューイングしただけではエラーにならない。実際に 同一パーティションのレコードに対する競合 DELETE 処理が動いた場合に一定の確率でにエラーになっているらしい。
+    ⇒ クエリジョブを API でリクエスト、キューイングしただけではエラーにならない。実際に 同一パーティションのレコードに対する競合 DELETE 処理が動き、かつ 3 回のリトライですべて競合した場合、エラーになっていると思われる。
 
 - クエリを分割してマルチスレッド実行している箇所をシングルスレッドで実行した場合、エラーになるか？
 
   - **シングルスレッドではエラーにならない。**
-
-- 各子スレッド内で異なる bigquery.Client インスタンスで API コールしていたところを、共通インスタンスを渡して実行してみた。
-
-  - エラー変わらず。
-
-- スレッド処理の submit 時に、少しスリープ処理を入れてみる。
-
-  - エラー変わらず。
 
 - DELETE 処理を、同一セッション内での マルチステートメントトランザクション処理にしてみる（各 DELETE ステートメントは並列スレッド内で実行）。
   - 以下のエラーが発生。
@@ -96,9 +87,7 @@ https://cloud.google.com/bigquery/docs/troubleshoot-queries?hl=ja#concurrent_job
 
 - マルチスレッド処理では、2 スレッドからエラーになりうることを確認した。
 - シングルスレッド処理では、エラーにならないことを確認した。
-
-ドキュメントに明確に記述があるわけではないので、原因ははっきりしないが、やはりマルチスレッド実行は保証されていないのでは？
-（それとも Python の SDK 特有の問題だったりするのか？）
+- BigQuery が DML ロックを使わないという仕組み上、並列 DML 数が多いほど、競合エラーの発生は高くなる。
 
 ## 対処方法
 
@@ -140,7 +129,7 @@ https://cloud.google.com/bigquery/docs/troubleshoot-queries#not_enough_resources
 
 https://cloud.google.com/bigquery/docs/reference/standard-sql/data-manipulation-language#best_practices
 
-- そもそも BigQuery の設計上、高速同時トランザクションの管理は一般的ではないので、データ基盤の設計時にはよく検討した方がよい。。
+- そもそも 列指向データベースである BigQuery の設計上、高速同時トランザクションの管理は一般的ではないので、データ基盤の設計時にはよく検討した方がよい。。
 
 ## 関連する制約まとめ
 
