@@ -2,7 +2,7 @@
 title: "BigQuery上のデータ基盤へのE(T)L処理でDigdag+embulkとWorkflows + Dataflowの構成を比較してみた"
 emoji: "🔖"
 type: "tech" # tech: 技術記事 / idea: アイデア
-topics: ["BigQuery", "embulk", "Digdag", "Dataflow", "ETL", "dbt", "GCP"]
+topics: ["BigQuery", "embulk", "Dataflow", "dbt", "GCP"]
 published: true
 ---
 
@@ -136,3 +136,16 @@ https://airbyte.com/tutorials/version-control-airbyte-configurations
 他にも、カラムレベルの Lineage を可視化できるツールも探したらたくさんあったので、こちらも後で調査したい。DataHub や Amundsen などのツールが人気ある模様。
 
 https://github.com/datahub-project/datahub
+
+## 2023/06/26 追記
+
+Workflows +Dataflow を使った ETL ツール「PyDataflow Template」を作成しました。メルカリのこのレポジトリ(https://github.com/mercari/DataflowTemplate)を参考にDataflowのflexテンプレートとしてPython で実装してあります。
+
+https://github.com/satokiyo/pydataflow-template
+
+このツールを使って実際に様々なテーブル連携を試してみて、Dataflow と embulk の違いがより明確になってきました。
+
+- Dataflow は起動に数分かかるので、小規模データや高頻度なデータ連携には向かない。こういった用途には embulk が適している。（ただし、Apache Beam は Dataflow runner でなくても、direct runner が使えるので、ローカルマシンでも動かせる。そうすれば起動早い）
+- Dataflow には Google 提供のテンプレートが用意されているが、数が多くなく、ドキュメントも充実していなかったりメンテが遅れていたりする。flex テンプレートを使えば複雑な処理も実装出来るが、実装コストがかかる。逆に embulk は比較的プラグインも多いし、枯れている感じで安心して気軽に使いやすい。
+- embulk の場合、サーバー用意する必要があり、サーバー内で多量のテーブルを並列処理する場合が多い。なのでサーバーのスペックによっては、巨大なテーブルの転送がボトルネックとなって他の転送タスクが滞ったり、あるジョブのエラーが他ジョブに影響したりする。その点、Dataflow はサーバーレスで管理が楽。ただし、オートスケールした多数のワーカーが同時にネットワーク通信することで帯域を圧迫することがあるので注意が必要。
+- 所感として、Dataflow の使い所はストリーミング処理、ビッグデータ処理、機械学習を使った変換処理などだろう。「変換」に力点がある。変換よりも単純な「データ連携」ならば embulk でよい。そもそも Dataflow と embulk とは占めるニッチが異なる。
