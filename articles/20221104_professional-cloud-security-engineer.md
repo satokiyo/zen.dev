@@ -1,6 +1,6 @@
 ---
 title: "Google Cloud Professional Cloud Security Engineer試験受験メモ"
-emoji: "📖"
+emoji: "📕"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["GCP", "certificate", ]
 published: true

@@ -1,6 +1,6 @@
 ---
 title: "[読書]自走プログラマー　～Pythonの先輩が教えるプロジェクト開発のベストプラクティス120"
-emoji: "📘"
+emoji: "📖"
 type: "idea"#tech:技術記事/idea:アイデア
 topics: [本,Python]
 published: true

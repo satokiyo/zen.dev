@@ -1,6 +1,6 @@
 ---
 title: "Professional Cloud Network Engineer 試験受験メモ"
-emoji: "🐈"
+emoji: "📕"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["GCP", "certificate", "NetworkEngineer"]
 published: true

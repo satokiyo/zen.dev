@@ -1,6 +1,6 @@
 ---
 title: "makefileのハマりポイント"
-emoji: "📖"
+emoji: "🦔"
 type: "tech"
 topics:
   - "makefile"
