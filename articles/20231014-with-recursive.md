@@ -63,7 +63,7 @@ ORDER BY
 次に再帰 CTE を使ったクエリです。指定した親テーブルの派生先テーブルの参照回数だけを再帰的に取得します。INFORMATION_SCHEMA.JOBS_BY_PROJECT のリージョンと ref_table_fqn = '<project_id>.<dataset_id>.<table_id>'の箇所を適当に変更して実行します。
 
 ```sql
-WITH RECURSIVE _count_job_list AS (
+WITH RECURSIVE count_job_list AS (
   SELECT
     CONCAT( destination_table.project_id, '.', destination_table.dataset_id, '.', destination_table.table_id ) AS dest_table_fqn,
     CONCAT( referenced_tables.project_id, '.', referenced_tables.dataset_id, '.', referenced_tables.table_id ) AS ref_table_fqn,
@@ -80,14 +80,6 @@ WITH RECURSIVE _count_job_list AS (
     AND error_result IS NULL -- 正常終了したジョブのみを対象にする
   -- 参照元と派生先のテーブルが同じジョブをグループ化する
   GROUP BY 2,1
-),
-count_job_list AS (
-  SELECT
-    dest_table_fqn,
-    ref_table_fqn,
-    count_job
-  FROM
-    _count_job_list
 ),
 rec AS (
   SELECT
